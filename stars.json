@@ -1,4 +1,9 @@
 {
-  "stars": 0,
-  "inventory": []
+  "stars": 25,
+  "inventory": [],
+  "completions": {
+    "full-training-week:max": "2026-06-07T18:59:03.734Z",
+    "weekly-chores": "2026-06-07T18:59:09.070Z",
+    "doctor-appointment": "2026-06-07T18:59:54.689Z"
+  }
 }
