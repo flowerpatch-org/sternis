@@ -6,7 +6,7 @@
 
 const TASKS = [
   // Health
-  { id: 'full-training-week',name: 'Full training week completed', emoji: '💪', stars: 2, category: 'health' },
+  { id: 'full-training-week',name: 'Full training week completed', emoji: '💪', stars: 1, category: 'health' },
 
   // Life admin
   { id: 'weekly-chores',     name: 'All weekly chores done',       emoji: '🧹', stars: 3, category: 'admin' },
