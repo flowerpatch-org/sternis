@@ -18,7 +18,7 @@ const TASKS = [
   { id: 'big-admin',          name: 'Big admin task (taxes, documents…)',  emoji: '📄', stars: 6, category: 'admin',    cooldown: 0, separateButtons: false },
 
   // Personal projects
-  { id: 'finished-book',      name: 'Finished a book', emoji: '📚', stars: 5, category: 'personal', cooldown: 0, separateButtons: false },
+  { id: 'finished-book',      name: 'Finished a book', emoji: '📚', stars: 3, category: 'personal', cooldown: 0, separateButtons: false },
 ];
 
 module.exports = TASKS;

@@ -15,10 +15,10 @@ Then open `http://localhost:3000`.
 
 ```
 docker build -t sternishop .
-docker run -p 3000:3000 -v "${PWD}/stars.json:/app/stars.json" sternishop
+docker run -p 3000:3000 -v "${PWD}/persistence:/app/persistence" sternishop
 ```
 
-The volume mount keeps your data (`stars.json`) on your machine so it survives container restarts. Without it, all data resets when the container is removed.
+The volume mount keeps your data (`persistence/stars.json`) on your machine so it survives container restarts. Without it, all data resets when the container is removed.
 
 On Windows PowerShell use `${PWD}`; on Linux/macOS use `$(pwd)`.
 
@@ -59,7 +59,7 @@ The server listens on port `3000` by default. To change it, edit the `PORT` cons
 
 ### Data file
 
-All state (star count and inventory) is stored in `stars.json` in the project root. You can edit it directly if you need to reset or adjust values:
+All state (star count and inventory) is stored in `persistence/stars.json`. You can edit it directly if you need to reset or adjust values:
 
 ```json
 {

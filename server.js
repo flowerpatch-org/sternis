@@ -2,12 +2,18 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const SHOP_ITEMS = require('./shop');
-const TASKS = require('./tasks');
+const SHOP_ITEMS = require('./persistence/shop');
+const TASKS = require('./persistence/tasks');
 
 const app = express();
 const PORT = 3000;
-const DATA_FILE = path.join(__dirname, 'stars.json');
+const PERSISTENCE_DIR = path.join(__dirname, 'persistence');
+const DATA_FILE = path.join(PERSISTENCE_DIR, 'stars.json');
+
+// Ensure persistence directory exists
+if (!fs.existsSync(PERSISTENCE_DIR)) {
+  fs.mkdirSync(PERSISTENCE_DIR, { recursive: true });
+}
 
 // ── Persistence ───────────────────────────────────────────────────────────────
 
