@@ -95,7 +95,7 @@ app.post('/api/tasks/complete', (req, res) => {
     return res.status(404).json({ error: 'Task not found' });
   }
   const data = readData();
-  data.stars += task.reward;
+  data.stars += task.stars;
   writeData(data);
   res.json({ stars: data.stars });
 });

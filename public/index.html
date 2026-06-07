@@ -167,11 +167,32 @@
       .count { font-size: 4rem; }
     }
 
+    /* ── Category groups ── */
+    .category-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .category-group + .category-group {
+      margin-top: 20px;
+    }
+
+    .category-heading {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #484f58;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #21262d;
+      margin-bottom: 2px;
+    }
+
     /* ── Tasks list ── */
     .task-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
     }
 
     .task-row {
@@ -188,6 +209,8 @@
     .task-row:hover { border-color: #3fb950; }
 
     .task-info { display: flex; align-items: center; gap: 10px; }
+
+    .task-emoji { font-size: 1.1rem; line-height: 1; }
 
     .task-reward {
       font-size: 0.82rem;
@@ -217,6 +240,15 @@
 
     /* ── Shop grid ── */
     .item-grid {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .item-grid .category-group {
+      gap: 16px;
+    }
+
+    .item-grid .category-items {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
       gap: 16px;
@@ -412,22 +444,43 @@
 
     // ── Tasks ─────────────────────────────────────────────
 
+    const TASK_CATEGORY_LABELS = { health: 'Health', admin: 'Life Admin', personal: 'Personal' };
+    const SHOP_CATEGORY_LABELS = { small: 'Small', medium: 'Medium', big: 'Big' };
+
+    function groupBy(arr, key) {
+      return arr.reduce((acc, item) => {
+        (acc[item[key]] = acc[item[key]] || []).push(item);
+        return acc;
+      }, {});
+    }
+
     async function loadTasks() {
       try {
         const tasks = await apiFetch('/api/tasks');
         taskList.innerHTML = '';
-        tasks.forEach(task => {
-          const row = document.createElement('div');
-          row.className = 'task-row';
-          row.innerHTML = `
-            <div class="task-info">
-              <span class="task-reward">&#11088; +${task.reward}</span>
-              <span class="task-name">${task.name}</span>
-            </div>
-            <button class="complete-btn">Complete</button>
-          `;
-          row.querySelector('.complete-btn').addEventListener('click', () => completeTask(task, row));
-          taskList.appendChild(row);
+        const grouped = groupBy(tasks, 'category');
+        Object.entries(grouped).forEach(([cat, catTasks]) => {
+          const group = document.createElement('div');
+          group.className = 'category-group';
+          const heading = document.createElement('div');
+          heading.className = 'category-heading';
+          heading.textContent = TASK_CATEGORY_LABELS[cat] || cat;
+          group.appendChild(heading);
+          catTasks.forEach(task => {
+            const row = document.createElement('div');
+            row.className = 'task-row';
+            row.innerHTML = `
+              <div class="task-info">
+                <span class="task-emoji">${task.emoji}</span>
+                <span class="task-reward">&#11088; +${task.stars}</span>
+                <span class="task-name">${task.name}</span>
+              </div>
+              <button class="complete-btn">Complete</button>
+            `;
+            row.querySelector('.complete-btn').addEventListener('click', () => completeTask(task, row));
+            group.appendChild(row);
+          });
+          taskList.appendChild(group);
         });
       } catch {
         taskList.innerHTML = '<p class="empty-state">Failed to load tasks</p>';
@@ -453,17 +506,30 @@
       try {
         const items = await apiFetch('/api/shop');
         shopGrid.innerHTML = '';
-        items.forEach(item => {
-          const card = document.createElement('div');
-          card.className = 'shop-card';
-          card.innerHTML = `
-            <div class="item-emoji">${item.emoji}</div>
-            <div class="item-name">${item.name}</div>
-            <div class="item-cost">&#11088; ${item.cost}</div>
-            <button class="buy-btn" data-id="${item.id}" data-cost="${item.cost}">Buy</button>
-          `;
-          card.querySelector('.buy-btn').addEventListener('click', () => buyItem(item));
-          shopGrid.appendChild(card);
+        const grouped = groupBy(items, 'category');
+        Object.entries(grouped).forEach(([cat, catItems]) => {
+          const group = document.createElement('div');
+          group.className = 'category-group';
+          const heading = document.createElement('div');
+          heading.className = 'category-heading';
+          heading.textContent = SHOP_CATEGORY_LABELS[cat] || cat;
+          group.appendChild(heading);
+          const grid = document.createElement('div');
+          grid.className = 'category-items';
+          catItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'shop-card';
+            card.innerHTML = `
+              <div class="item-emoji">${item.emoji}</div>
+              <div class="item-name">${item.name}</div>
+              <div class="item-cost">&#11088; ${item.cost}</div>
+              <button class="buy-btn" data-id="${item.id}" data-cost="${item.cost}">Buy</button>
+            `;
+            card.querySelector('.buy-btn').addEventListener('click', () => buyItem(item));
+            grid.appendChild(card);
+          });
+          group.appendChild(grid);
+          shopGrid.appendChild(group);
         });
         refreshBuyButtons();
       } catch {
