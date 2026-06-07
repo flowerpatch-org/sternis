@@ -238,6 +238,36 @@
     .complete-btn:active:not(:disabled) { transform: scale(0.95); }
     .complete-btn:disabled { background: #21262d; color: #484f58; cursor: default; }
 
+    /* Separate-button slot group */
+    .slot-buttons {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .slot-btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .slot-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: #484f58;
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+      line-height: 1;
+    }
+
+    /* Cooldown badge shown inside a disabled complete button */
+    .cooldown-days {
+      font-size: 0.72rem;
+      font-weight: 400;
+      opacity: 0.7;
+    }
+
     /* ── Shop grid ── */
     .item-grid {
       display: flex;
@@ -373,7 +403,7 @@
     <!-- Left: balance -->
     <div class="col-left">
       <div class="balance-card">
-        <div class="section-label">Your Stars</div>
+        <div class="section-label">Our Stars</div>
         <div class="star-wrap" id="star-wrap">
           <div class="star-display">&#11088;</div>
         </div>
@@ -469,15 +499,55 @@
           catTasks.forEach(task => {
             const row = document.createElement('div');
             row.className = 'task-row';
-            row.innerHTML = `
-              <div class="task-info">
-                <span class="task-emoji">${task.emoji}</span>
-                <span class="task-reward">&#11088; +${task.stars}</span>
-                <span class="task-name">${task.name}</span>
-              </div>
-              <button class="complete-btn">Complete</button>
+
+            const info = document.createElement('div');
+            info.className = 'task-info';
+            info.innerHTML = `
+              <span class="task-emoji">${task.emoji}</span>
+              <span class="task-reward">&#11088; +${task.stars}</span>
+              <span class="task-name">${task.name}</span>
             `;
-            row.querySelector('.complete-btn').addEventListener('click', () => completeTask(task, row));
+
+            let btnArea;
+            if (task.separateButtons) {
+              btnArea = document.createElement('div');
+              btnArea.className = 'slot-buttons';
+              ['max', 'julian'].forEach(slot => {
+                const ci = task.cooldownInfo[slot];
+                const wrap = document.createElement('div');
+                wrap.className = 'slot-btn-wrap';
+                const label = document.createElement('div');
+                label.className = 'slot-label';
+                label.textContent = slot;
+                const btn = document.createElement('button');
+                btn.className = 'complete-btn';
+                btn.dataset.slot = slot;
+                if (ci.onCooldown) {
+                  btn.disabled = true;
+                  btn.innerHTML = `${ci.daysRemaining}d <span class="cooldown-days">left</span>`;
+                } else {
+                  btn.textContent = 'Complete';
+                }
+                btn.addEventListener('click', () => completeTask(task, btn, slot));
+                wrap.appendChild(label);
+                wrap.appendChild(btn);
+                btnArea.appendChild(wrap);
+              });
+            } else {
+              const ci = task.cooldownInfo['default'];
+              btnArea = document.createElement('button');
+              btnArea.className = 'complete-btn';
+              if (ci.onCooldown) {
+                btnArea.disabled = true;
+                btnArea.innerHTML = `${ci.daysRemaining}d <span class="cooldown-days">left</span>`;
+              } else {
+                btnArea.textContent = 'Complete';
+              }
+              btnArea.addEventListener('click', () => completeTask(task, btnArea, null));
+            }
+
+            row.appendChild(info);
+            row.appendChild(btnArea);
             group.appendChild(row);
           });
           taskList.appendChild(group);
@@ -487,15 +557,26 @@
       }
     }
 
-    async function completeTask(task, row) {
-      const btn = row.querySelector('.complete-btn');
+    async function completeTask(task, btn, slot) {
       btn.disabled = true;
       try {
-        const data = await apiFetch('/api/tasks/complete', { id: task.id });
+        const body = { id: task.id };
+        if (slot) body.slot = slot;
+        const data = await apiFetch('/api/tasks/complete', body);
         updateCount(data.stars);
+        // Update button to show cooldown if applicable
+        if (task.cooldown > 0) {
+          btn.innerHTML = `${task.cooldown}d <span class="cooldown-days">left</span>`;
+          // Re-enable after cooldown (client-side approximation for UX; server enforces truth)
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'Complete';
+          }, task.cooldown * 24 * 60 * 60 * 1000);
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Complete';
+        }
       } catch {
-        // silent
-      } finally {
         btn.disabled = false;
       }
     }
