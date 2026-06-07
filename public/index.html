@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Star Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: #0d1117;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e6edf3;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px 60px;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    .col-left, .col-right {
+      display: contents;
+    }
+
+    @media (min-width: 900px) {
+      .layout {
+        flex-direction: row;
+        align-items: flex-start;
+        max-width: 1000px;
+        gap: 40px;
+      }
+
+      .col-left {
+        display: block;
+        position: sticky;
+        top: 40px;
+        flex-shrink: 0;
+        width: 280px;
+      }
+
+      .col-right {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 32px;
+        min-width: 0;
+      }
+    }
+
+    /* ── Shared ── */
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #8b949e;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .wide-section {
+      width: 100%;
+    }
+
+    .empty-state {
+      color: #484f58;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    /* ── Balance card ── */
+    .balance-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 36px 48px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      width: 100%;
+    }
+
+    .star-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 96px;
+      height: 96px;
+      margin-bottom: 8px;
+    }
+
+    .star-display {
+      font-size: 3.4rem;
+      line-height: 1;
+      position: relative;
+      z-index: 1;
+      animation: float 3s ease-in-out infinite, glow 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0);    }
+      50%       { transform: translateY(-5px); }
+    }
+
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0  6px #f0c04000); }
+      50%       { filter: drop-shadow(0 0 18px #f0c040cc); }
+    }
+
+    /* Sparkle dots */
+    .sparkle {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #f0c040;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+      50%       { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+    }
+
+    .count {
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: #f0c040;
+      letter-spacing: -0.02em;
+      min-height: 1.2em;
+      transition: transform 0.15s;
+    }
+
+    .count.pop {
+      animation: count-pop 0.3s ease-out;
+    }
+
+    @keyframes count-pop {
+      0%   { transform: scale(1);    }
+      50%  { transform: scale(1.18); }
+      100% { transform: scale(1);    }
+    }
+
+    @media (min-width: 900px) {
+      .balance-card {
+        background: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+
+      .star-display { font-size: 3rem; }
+
+      .count { font-size: 4rem; }
+    }
+
+    /* ── Tasks list ── */
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task-row {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.15s;
+    }
+    .task-row:hover { border-color: #3fb950; }
+
+    .task-info { display: flex; align-items: center; gap: 10px; }
+
+    .task-reward {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #f0c040;
+      white-space: nowrap;
+    }
+
+    .task-name {
+      font-size: 0.95rem;
+      color: #e6edf3;
+    }
+
+    .complete-btn {
+      padding: 8px 16px;
+      border-radius: 7px; border: none;
+      background: #238636; color: #fff;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .complete-btn:hover:not(:disabled) { background: #2ea043; }
+    .complete-btn:active:not(:disabled) { transform: scale(0.95); }
+    .complete-btn:disabled { background: #21262d; color: #484f58; cursor: default; }
+
+    /* ── Shop grid ── */
+    .item-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+      gap: 16px;
+    }
+
+    .shop-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px 16px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .shop-card:has(.buy-btn:not(:disabled)):hover { border-color: #58a6ff; }
+
+    .item-emoji { font-size: 2.6rem; line-height: 1; }
+    .item-name  { font-size: 0.95rem; font-weight: 600; color: #e6edf3; }
+    .item-cost  { font-size: 0.85rem; color: #f0c040; }
+
+    .buy-btn {
+      margin-top: 6px;
+      padding: 8px 20px;
+      border-radius: 8px; border: none;
+      background: #1f6feb; color: #fff;
+      font-size: 0.85rem; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .buy-btn:hover:not(:disabled) { background: #388bfd; }
+    .buy-btn:active:not(:disabled) { transform: scale(0.95); }
+    .buy-btn:disabled { background: #21262d; color: #484f58; cursor: default; }
+
+    /* ── Inventory / tickets ── */
+    .inventory-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .ticket {
+      display: flex;
+      align-items: stretch;
+      background: #1c2030;
+      border-radius: 6px;
+      position: relative;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+
+    .ticket-stub {
+      width: 72px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      border-right: 2px dashed #2d3348;
+      padding: 16px 0;
+    }
+
+    .ticket-body {
+      flex: 1;
+      padding: 14px 20px 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .ticket-label {
+      font-size: 0.7rem;
+      color: #484f58;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 2px;
+    }
+
+    .ticket-name {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    .ticket-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .use-btn, .return-btn {
+      padding: 8px 14px;
+      border-radius: 6px; border: none;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .use-btn:active:not(:disabled),
+    .return-btn:active:not(:disabled) { transform: scale(0.95); }
+    .use-btn:disabled,
+    .return-btn:disabled { background: #21262d; color: #484f58; cursor: default; }
+
+    .use-btn { background: #6e40c9; color: #fff; }
+    .use-btn:hover:not(:disabled) { background: #8957e5; }
+
+    .return-btn { background: #21262d; color: #8b949e; }
+    .return-btn:hover:not(:disabled) { background: #30363d; color: #e6edf3; }
+  </style>
+</head>
+<body>
+
+<!-- SVG defs for ticket clip paths -->
+<svg width="0" height="0" style="position:absolute">
+  <defs id="svg-defs"></defs>
+</svg>
+
+  <div class="layout">
+
+    <!-- Left: balance -->
+    <div class="col-left">
+      <div class="balance-card">
+        <div class="section-label">Your Stars</div>
+        <div class="star-wrap" id="star-wrap">
+          <div class="star-display">&#11088;</div>
+        </div>
+        <div class="count" id="count">...</div>
+      </div>
+    </div>
+
+    <!-- Right: tasks, shop, inventory -->
+    <div class="col-right">
+
+      <!-- Tasks -->
+      <div class="wide-section">
+        <div class="section-label">&#9989; Tasks</div>
+        <div class="task-list" id="task-list"></div>
+      </div>
+
+      <!-- Shop -->
+      <div class="wide-section">
+        <div class="section-label">&#11088; Shop</div>
+        <div class="item-grid" id="shop-grid"></div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="wide-section">
+        <div class="section-label">&#127974; Inventory</div>
+        <div class="inventory-grid" id="inventory-grid"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let currentStars = 0;
+
+    const countEl       = document.getElementById('count');
+    const taskList      = document.getElementById('task-list');
+    const shopGrid      = document.getElementById('shop-grid');
+    const inventoryGrid = document.getElementById('inventory-grid');
+
+    // ── Helpers ───────────────────────────────────────────
+
+    function updateCount(stars) {
+      currentStars = stars;
+      countEl.textContent = stars;
+      countEl.classList.remove('pop');
+      void countEl.offsetWidth; // force reflow so animation restarts
+      countEl.classList.add('pop');
+      refreshBuyButtons();
+    }
+
+    function refreshBuyButtons() {
+      shopGrid.querySelectorAll('.buy-btn').forEach(btn => {
+        btn.disabled = currentStars < parseInt(btn.dataset.cost, 10);
+      });
+    }
+
+    // ── Stars ─────────────────────────────────────────────
+
+    async function fetchStars() {
+      try {
+        const data = await apiFetch('/api/stars');
+        updateCount(data.stars);
+      } catch {
+        countEl.textContent = '?';
+      }
+    }
+
+    // ── Tasks ─────────────────────────────────────────────
+
+    async function loadTasks() {
+      try {
+        const tasks = await apiFetch('/api/tasks');
+        taskList.innerHTML = '';
+        tasks.forEach(task => {
+          const row = document.createElement('div');
+          row.className = 'task-row';
+          row.innerHTML = `
+            <div class="task-info">
+              <span class="task-reward">&#11088; +${task.reward}</span>
+              <span class="task-name">${task.name}</span>
+            </div>
+            <button class="complete-btn">Complete</button>
+          `;
+          row.querySelector('.complete-btn').addEventListener('click', () => completeTask(task, row));
+          taskList.appendChild(row);
+        });
+      } catch {
+        taskList.innerHTML = '<p class="empty-state">Failed to load tasks</p>';
+      }
+    }
+
+    async function completeTask(task, row) {
+      const btn = row.querySelector('.complete-btn');
+      btn.disabled = true;
+      try {
+        const data = await apiFetch('/api/tasks/complete', { id: task.id });
+        updateCount(data.stars);
+      } catch {
+        // silent
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // ── Shop ──────────────────────────────────────────────
+
+    async function loadShop() {
+      try {
+        const items = await apiFetch('/api/shop');
+        shopGrid.innerHTML = '';
+        items.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'shop-card';
+          card.innerHTML = `
+            <div class="item-emoji">${item.emoji}</div>
+            <div class="item-name">${item.name}</div>
+            <div class="item-cost">&#11088; ${item.cost}</div>
+            <button class="buy-btn" data-id="${item.id}" data-cost="${item.cost}">Buy</button>
+          `;
+          card.querySelector('.buy-btn').addEventListener('click', () => buyItem(item));
+          shopGrid.appendChild(card);
+        });
+        refreshBuyButtons();
+      } catch {
+        shopGrid.innerHTML = '<p class="empty-state">Failed to load shop</p>';
+      }
+    }
+
+    async function buyItem(item) {
+      shopGrid.querySelectorAll('.buy-btn').forEach(b => b.disabled = true);
+      try {
+        const data = await apiFetch('/api/shop/buy', { id: item.id });
+        updateCount(data.stars);
+        addInventoryCard(data.item);
+      } catch {
+        // silent
+      } finally {
+        refreshBuyButtons();
+      }
+    }
+
+    // ── Inventory ─────────────────────────────────────────
+
+    async function loadInventory() {
+      try {
+        const items = await apiFetch('/api/inventory');
+        inventoryGrid.innerHTML = '';
+        if (items.length === 0) {
+          renderEmptyInventory();
+        } else {
+          items.forEach(addInventoryCard);
+        }
+      } catch {
+        inventoryGrid.innerHTML = '<p class="empty-state">Failed to load inventory</p>';
+      }
+    }
+
+    function renderEmptyInventory() {
+      inventoryGrid.innerHTML = '<p class="empty-state">Nothing here yet. Buy something!</p>';
+    }
+
+    function addInventoryCard(entry) {
+      const empty = inventoryGrid.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      const ticket = document.createElement('div');
+      ticket.className = 'ticket';
+      ticket.dataset.instanceId = entry.instanceId;
+      ticket.innerHTML = `
+        <div class="ticket-stub">${entry.emoji}</div>
+        <div class="ticket-body">
+          <div>
+            <div class="ticket-label">Redeemable</div>
+            <div class="ticket-name">${entry.name}</div>
+          </div>
+          <div class="ticket-actions">
+            <button class="return-btn">Return</button>
+            <button class="use-btn">Use</button>
+          </div>
+        </div>
+      `;
+      ticket.querySelector('.use-btn').addEventListener('click', () => useItem(entry.instanceId, ticket));
+      ticket.querySelector('.return-btn').addEventListener('click', () => returnItem(entry.instanceId, ticket));
+      inventoryGrid.appendChild(ticket);
+      applyTicketClip(ticket);
+    }
+
+    let ticketClipCounter = 0;
+
+    function applyTicketClip(ticket) {
+      // Wait one frame so the browser has laid out the ticket and we can measure it
+      requestAnimationFrame(() => {
+        const R = 9; // notch radius in px
+        const w = ticket.offsetWidth;
+        const h = ticket.offsetHeight;
+        const mid = h / 2;
+        const r = 6; // border-radius of ticket corners
+
+        // Build a path that is the ticket rectangle with rounded corners
+        // and two semicircular bites out of the left and right midpoints.
+        // We go clockwise from top-left corner.
+        const path = [
+          `M ${r} 0`,
+          `H ${w - r}`, `Q ${w} 0 ${w} ${r}`,          // top-right corner
+          `V ${mid - R}`, `A ${R} ${R} 0 0 0 ${w} ${mid + R}`, // right notch (concave arc)
+          `V ${h - r}`, `Q ${w} ${h} ${w - r} ${h}`,   // bottom-right corner
+          `H ${r}`, `Q 0 ${h} 0 ${h - r}`,             // bottom-left corner
+          `V ${mid + R}`, `A ${R} ${R} 0 0 0 0 ${mid - R}`, // left notch (concave arc)
+          `V ${r}`, `Q 0 0 ${r} 0`,                    // top-left corner
+          `Z`,
+        ].join(' ');
+
+        const id = `ticket-clip-${ticketClipCounter++}`;
+        const svgDefs = document.getElementById('svg-defs');
+
+        const clipEl = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+        clipEl.setAttribute('id', id);
+        clipEl.setAttribute('clipPathUnits', 'userSpaceOnUse');
+
+        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEl.setAttribute('d', path);
+
+        clipEl.appendChild(pathEl);
+        svgDefs.appendChild(clipEl);
+
+        ticket.style.clipPath = `url(#${id})`;
+        ticket.dataset.clipId = id;
+      });
+    }
+
+    function setTicketBusy(ticket, busy) {
+      ticket.querySelectorAll('button').forEach(b => b.disabled = busy);
+    }
+
+    function removeTicket(ticket) {
+      const clipId = ticket.dataset.clipId;
+      if (clipId) {
+        const clipEl = document.getElementById(clipId);
+        if (clipEl) clipEl.remove();
+      }
+      ticket.remove();
+      if (inventoryGrid.querySelectorAll('.ticket').length === 0) renderEmptyInventory();
+    }
+
+    async function useItem(instanceId, ticket) {
+      setTicketBusy(ticket, true);
+      try {
+        await apiFetch('/api/inventory/use', { instanceId });
+        removeTicket(ticket);
+      } catch {
+        setTicketBusy(ticket, false);
+      }
+    }
+
+    async function returnItem(instanceId, ticket) {
+      setTicketBusy(ticket, true);
+      try {
+        const data = await apiFetch('/api/inventory/return', { instanceId });
+        updateCount(data.stars);
+        removeTicket(ticket);
+      } catch {
+        setTicketBusy(ticket, false);
+      }
+    }
+
+    // ── Shared fetch helper ────────────────────────────────
+
+    async function apiFetch(url, body = null) {
+      const res = await fetch(url, body === null ? undefined : {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    // ── Sparkles ──────────────────────────────────────────
+    (function initSparkles() {
+      const wrap = document.getElementById('star-wrap');
+      const COUNT = 4;
+      const DURATION = 2000; // ms per twinkle cycle
+      const RADIUS_MIN = 28; // px from centre
+      const RADIUS_MAX = 44;
+      const SIZE_MIN = 3;
+      const SIZE_MAX = 6;
+      const cx = wrap.offsetWidth  / 2;
+      const cy = wrap.offsetHeight / 2;
+
+      function randomSparkle(el) {
+        const angle  = Math.random() * 2 * Math.PI;
+        const radius = RADIUS_MIN + Math.random() * (RADIUS_MAX - RADIUS_MIN);
+        const size   = SIZE_MIN   + Math.random() * (SIZE_MAX   - SIZE_MIN);
+        el.style.left   = (cx + Math.cos(angle) * radius) + 'px';
+        el.style.top    = (cy + Math.sin(angle) * radius) + 'px';
+        el.style.width  = size + 'px';
+        el.style.height = size + 'px';
+      }
+
+      for (let i = 0; i < COUNT; i++) {
+        const el = document.createElement('div');
+        el.className = 'sparkle';
+        const delay = (i / COUNT) * DURATION;
+        el.style.animation = `twinkle ${DURATION}ms ease-in-out ${delay}ms infinite`;
+        randomSparkle(el);
+        // Re-randomise position each time the twinkle cycle restarts
+        el.addEventListener('animationiteration', () => randomSparkle(el));
+        wrap.insertBefore(el, wrap.firstChild);
+      }
+    })();
+
+    // ── Init ──────────────────────────────────────────────
+    fetchStars();
+    loadTasks();
+    loadShop();
+    loadInventory();
+  </script>
+</body>
+</html>
