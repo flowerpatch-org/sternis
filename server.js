@@ -97,24 +97,124 @@ function completionKey(taskId, slot) {
   return slot ? `${taskId}:${slot}` : taskId;
 }
 
+// Returns a string key representing the current cooldown period for the given date.
+// Two dates in the same period return the same key.
+function getPeriodKey(cooldownType, date) {
+  const d = new Date(date);
+  switch (cooldownType) {
+    case 'daily': {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    case 'weekly': {
+      const day = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0, 0, 0, 0);
+      return `W-${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+    }
+    case 'biweekly': {
+      const day = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0, 0, 0, 0);
+      const epochMonday = new Date(1969, 11, 29);
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const weekNum = Math.floor((monday.getTime() - epochMonday.getTime()) / msPerWeek);
+      const biweekNum = Math.floor(weekNum / 2);
+      return `BW-${biweekNum}`;
+    }
+    case 'monthly': {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+    case 'seasonally': {
+      const quarter = Math.floor(d.getMonth() / 3) + 1;
+      return `${d.getFullYear()}-Q${quarter}`;
+    }
+    case 'yearly': {
+      return `${d.getFullYear()}`;
+    }
+    default:
+      return null;
+  }
+}
+
+// Returns the start of the next cooldown period as a Date.
+function getNextPeriodStart(cooldownType, fromDate) {
+  const d = new Date(fromDate);
+  d.setHours(0, 0, 0, 0);
+  switch (cooldownType) {
+    case 'daily': {
+      d.setDate(d.getDate() + 1);
+      return d;
+    }
+    case 'weekly': {
+      const day = d.getDay();
+      const daysUntilMonday = day === 0 ? 1 : 8 - day;
+      d.setDate(d.getDate() + daysUntilMonday);
+      return d;
+    }
+    case 'biweekly': {
+      const day = d.getDay();
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0, 0, 0, 0);
+      const epochMonday = new Date(1969, 11, 29);
+      const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+      const weekNum = Math.floor((monday.getTime() - epochMonday.getTime()) / msPerWeek);
+      const biweekNum = Math.floor(weekNum / 2);
+      const nextStart = new Date(epochMonday.getTime() + (biweekNum + 1) * 2 * msPerWeek);
+      return nextStart;
+    }
+    case 'monthly': {
+      d.setMonth(d.getMonth() + 1);
+      d.setDate(1);
+      return d;
+    }
+    case 'seasonally': {
+      const month = d.getMonth();
+      const nextQuarterMonth = (Math.floor(month / 3) + 1) * 3;
+      if (nextQuarterMonth >= 12) {
+        d.setFullYear(d.getFullYear() + 1);
+        d.setMonth(0);
+      } else {
+        d.setMonth(nextQuarterMonth);
+      }
+      d.setDate(1);
+      return d;
+    }
+    case 'yearly': {
+      d.setFullYear(d.getFullYear() + 1);
+      d.setMonth(0);
+      d.setDate(1);
+      return d;
+    }
+    default:
+      return d;
+  }
+}
+
 // Returns true if the task (or slot) is currently on cooldown.
-function isOnCooldown(data, taskId, cooldownDays, slot) {
-  if (!cooldownDays) return false;
+function isOnCooldown(data, taskId, cooldownType, slot) {
+  if (!cooldownType) return false;
   const key = completionKey(taskId, slot);
   const last = data.completions && data.completions[key];
   if (!last) return false;
-  const elapsed = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
-  return elapsed < cooldownDays;
+  const lastPeriod = getPeriodKey(cooldownType, new Date(last));
+  const currentPeriod = getPeriodKey(cooldownType, new Date());
+  return lastPeriod === currentPeriod;
 }
 
 // Returns how many whole days remain on cooldown (0 if not on cooldown).
-function daysRemaining(data, taskId, cooldownDays, slot) {
-  if (!cooldownDays) return 0;
+function daysRemaining(data, taskId, cooldownType, slot) {
+  if (!cooldownType) return 0;
   const key = completionKey(taskId, slot);
   const last = data.completions && data.completions[key];
   if (!last) return 0;
-  const elapsed = (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24);
-  const remaining = cooldownDays - elapsed;
+  const lastPeriod = getPeriodKey(cooldownType, new Date(last));
+  const currentPeriod = getPeriodKey(cooldownType, new Date());
+  if (lastPeriod !== currentPeriod) return 0;
+  const nextStart = getNextPeriodStart(cooldownType, new Date());
+  const remaining = (nextStart.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
   return remaining > 0 ? Math.ceil(remaining) : 0;
 }
 
@@ -130,6 +230,7 @@ app.get('/api/tasks', (req, res) => {
       cooldownInfo[key] = {
         onCooldown: isOnCooldown(data, task.id, task.cooldown, slot),
         daysRemaining: daysRemaining(data, task.id, task.cooldown, slot),
+        type: task.cooldown || null,
       };
     });
     return { ...task, cooldownInfo };
@@ -162,7 +263,8 @@ app.post('/api/tasks/complete', (req, res) => {
   data.stars += task.stars;
   data.completions[completionKey(task.id, effectiveSlot)] = new Date().toISOString();
   writeData(data);
-  res.json({ stars: data.stars });
+  const remainingDays = task.cooldown ? daysRemaining(data, task.id, task.cooldown, effectiveSlot) : 0;
+  res.json({ stars: data.stars, daysRemaining: remainingDays });
 });
 
 // ── Inventory ─────────────────────────────────────────────────────────────────

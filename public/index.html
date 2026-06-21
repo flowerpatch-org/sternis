@@ -572,13 +572,13 @@
         const data = await apiFetch('/api/tasks/complete', body);
         updateCount(data.stars);
         // Update button to show cooldown if applicable
-        if (task.cooldown > 0) {
-          btn.innerHTML = `${task.cooldown}d <span class="cooldown-days">left</span>`;
+        if (data.daysRemaining > 0) {
+          btn.innerHTML = `${data.daysRemaining}d <span class="cooldown-days">left</span>`;
           // Re-enable after cooldown (client-side approximation for UX; server enforces truth)
           setTimeout(() => {
             btn.disabled = false;
             btn.textContent = 'Complete';
-          }, task.cooldown * 24 * 60 * 60 * 1000);
+          }, data.daysRemaining * 24 * 60 * 60 * 1000);
         } else {
           btn.disabled = false;
           btn.textContent = 'Complete';
